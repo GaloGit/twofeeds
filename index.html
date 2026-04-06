@@ -217,6 +217,50 @@
     .btn-save:hover { opacity: 0.85; }
     .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* STRATEGY GATE */
+    .gate-wrap {
+      max-width: 420px; margin: 80px auto; text-align: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 48px 40px;
+    }
+    .gate-icon { font-size: 40px; margin-bottom: 16px; }
+    .gate-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .gate-sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; font-family: var(--font-mono); }
+    .gate-input-row { display: flex; gap: 10px; }
+    .gate-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; color: var(--text);
+      font-family: var(--font-mono); font-size: 13px; outline: none;
+      transition: border-color 0.2s; letter-spacing: 0.1em;
+    }
+    .gate-input:focus { border-color: var(--accent); }
+    .gate-error { color: var(--ended); font-family: var(--font-mono); font-size: 11px; margin-top: 12px; min-height: 16px; }
+
+    /* NOTES */
+    .note-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 22px; margin-bottom: 12px;
+      animation: fadeUp 0.3s ease both; position: relative;
+    }
+    .note-item:hover { border-color: var(--accent); }
+    .note-item:hover .task-delete { opacity: 1; }
+    .note-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .note-title {
+      font-weight: 700; font-size: 14px; background: transparent;
+      border: none; outline: none; color: var(--text); font-family: var(--font-display);
+      width: 80%;
+    }
+    .note-title::placeholder { color: var(--muted); }
+    .note-body {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: var(--font-display); font-size: 13px;
+      line-height: 1.6; resize: none; min-height: 80px;
+    }
+    .note-body::placeholder { color: var(--muted); }
+    .note-date { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 10px; }
+    .note-saved { font-family: var(--font-mono); font-size: 10px; color: var(--live); margin-top: 4px; opacity: 0; transition: opacity 0.3s; }
+    .note-saved.show { opacity: 1; }
+
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -250,6 +294,7 @@
     <nav class="nav-bar">
       <button class="nav-tab active" onclick="showPage('campaigns', this)">📊 Campaigns</button>
       <button class="nav-tab" onclick="showPage('tasks', this)">✅ Tasks</button>
+      <button class="nav-tab" onclick="showPage('strategy', this)">🔒 Strategy</button>
     </nav>
   </header>
 
@@ -313,6 +358,35 @@
     </div>
     <div class="task-list" id="taskList"></div>
   </div>
+
+  <!-- STRATEGY PAGE -->
+  <div class="page" id="page-strategy">
+    <!-- Password Gate -->
+    <div id="strategyGate">
+      <div class="gate-wrap">
+        <div class="gate-icon">🔒</div>
+        <h2 class="gate-title">Strategy Notes</h2>
+        <p class="gate-sub">This section is password protected.</p>
+        <div class="gate-input-row">
+          <input type="password" id="gatePassword" class="gate-input" placeholder="Enter password..."
+            onkeydown="if(event.key==='Enter') checkPassword()"/>
+          <button class="task-add-btn" onclick="checkPassword()">UNLOCK</button>
+        </div>
+        <div class="gate-error" id="gateError"></div>
+      </div>
+    </div>
+    <!-- Strategy Content (hidden until unlocked) -->
+    <div id="strategyContent" style="display:none">
+      <div class="tasks-header">
+        <div>
+          <div class="tasks-title">Strategy Notes</div>
+          <div class="tasks-stats">Private · Session only</div>
+        </div>
+        <button class="refresh-btn" onclick="addNote()">+ ADD NOTE</button>
+      </div>
+      <div id="notesList" class="task-list"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -348,6 +422,17 @@
     btn.classList.add('active');
     document.getElementById('campaignControls').style.display = name === 'campaigns' ? 'flex' : 'none';
     if (name === 'tasks') renderTasks();
+    if (name === 'strategy') {
+      if (strategyUnlocked) {
+        document.getElementById('strategyGate').style.display = 'none';
+        document.getElementById('strategyContent').style.display = 'block';
+        renderNotes();
+      } else {
+        document.getElementById('strategyGate').style.display = 'block';
+        document.getElementById('strategyContent').style.display = 'none';
+        setTimeout(() => document.getElementById('gatePassword').focus(), 100);
+      }
+    }
   }
 
   // UTILS
@@ -540,6 +625,74 @@
         <div class="task-text">${escapeHtml(t.text)}</div>
         <div class="task-date">${formatDate(t.created)}</div>
         <button class="task-delete" onclick="deleteTask(${t.id})">✕</button>
+      </div>`).join('');
+  }
+
+  // STRATEGY
+  const STRATEGY_PASSWORD = 'twofeeds2026'; // ← change this to your password
+  let strategyUnlocked = false;
+
+  function checkPassword() {
+    const val = document.getElementById('gatePassword').value;
+    if (val === STRATEGY_PASSWORD) {
+      strategyUnlocked = true;
+      document.getElementById('strategyGate').style.display = 'none';
+      document.getElementById('strategyContent').style.display = 'block';
+      renderNotes();
+    } else {
+      const err = document.getElementById('gateError');
+      err.textContent = 'Incorrect password. Try again.';
+      document.getElementById('gatePassword').value = '';
+      document.getElementById('gatePassword').focus();
+      setTimeout(() => { err.textContent = ''; }, 3000);
+    }
+  }
+
+  function loadNotes() { try { return JSON.parse(localStorage.getItem('tf_notes') || '[]'); } catch { return []; } }
+  function saveNotes(n) { localStorage.setItem('tf_notes', JSON.stringify(n)); }
+
+  function addNote() {
+    const notes = loadNotes();
+    notes.unshift({ id: Date.now(), title: '', body: '', created: new Date().toISOString() });
+    saveNotes(notes); renderNotes();
+    // Focus new note title
+    setTimeout(() => { const t = document.querySelector('.note-title'); if(t) t.focus(); }, 50);
+  }
+
+  function updateNote(id, field, value) {
+    const notes = loadNotes();
+    const n = notes.find(n => n.id === id);
+    if (n) { n[field] = value; n.updated = new Date().toISOString(); }
+    saveNotes(notes);
+    // Show saved indicator
+    const indicator = document.getElementById('saved-' + id);
+    if (indicator) {
+      indicator.classList.add('show');
+      setTimeout(() => indicator.classList.remove('show'), 1500);
+    }
+  }
+
+  function deleteNote(id) { saveNotes(loadNotes().filter(n => n.id !== id)); renderNotes(); }
+
+  function renderNotes() {
+    const notes = loadNotes();
+    const list = document.getElementById('notesList');
+    if (notes.length === 0) {
+      list.innerHTML = `<div class="tasks-empty">No notes yet. Click + ADD NOTE to start.</div>`;
+      return;
+    }
+    list.innerHTML = notes.map((n, i) => `
+      <div class="note-item" style="animation-delay:${i*0.04}s">
+        <div class="note-title-row">
+          <input class="note-title" type="text" value="${escapeHtml(n.title)}"
+            placeholder="Note title..."
+            onblur="updateNote(${n.id}, 'title', this.value)"/>
+          <button class="task-delete" style="opacity:1" onclick="deleteNote(${n.id})">✕</button>
+        </div>
+        <textarea class="note-body" placeholder="Write your strategy notes here..."
+          onblur="updateNote(${n.id}, 'body', this.value)">${escapeHtml(n.body)}</textarea>
+        <div class="note-date">${formatDate(n.updated || n.created)}</div>
+        <div class="note-saved" id="saved-${n.id}">✓ Saved</div>
       </div>`).join('');
   }
 
