@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TwoFeeds — Campaign Ops</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #f4f2f8;
+      --surface: #ffffff;
+      --surface2: #ede9f7;
+      --border: #d9d3ec;
+      --accent: #5c2d91;
+      --accent-light: #7b3fbf;
+      --accent2: #a259ff;
+      --accent3: #3d1a6e;
+      --text: #1a0f2e;
+      --muted: #7a6d96;
+      --live: #1e8a5e;
+      --paused: #b06a00;
+      --ended: #b02a4a;
+      --font-mono: 'Space Mono', monospace;
+      --font-display: 'Syne', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(92,45,145,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(92,45,145,0.07) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      padding: 36px 0 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: #5c2d91;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(92,45,145,0.25);
+    }
+
+    .logo-icon img {
+      width: 80%;
+      height: 80%;
+      object-fit: contain;
+    }
+
+    .logo h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .logo span {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      display: block;
+      margin-top: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .refresh-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .refresh-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--surface2);
+    }
+
+    .last-sync {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .stat:nth-child(1) { animation-delay: 0.05s; }
+    .stat:nth-child(2) { animation-delay: 0.1s; }
+    .stat:nth-child(3) { animation-delay: 0.15s; }
+
+    .stat::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .stat.live-stat::before { background: var(--live); }
+    .stat.paused-stat::before { background: var(--paused); }
+    .stat.ended-stat::before { background: var(--ended); }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .stat.live-stat .stat-value { color: var(--live); }
+    .stat.paused-stat .stat-value { color: var(--paused); }
+    .stat.ended-stat .stat-value { color: var(--ended); }
+
+    /* Controls */
+    .controls {
+      padding: 20px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .search-wrap {
+      margin-left: auto;
+      position: relative;
+    }
+
+    .search-wrap input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px 8px 36px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      width: 220px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-wrap input::placeholder { color: var(--muted); }
+    .search-wrap input:focus { border-color: var(--accent); }
+
+    .search-icon {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* Campaign table */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      padding: 14px 20px;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+      animation: fadeUp 0.35s ease both;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    td {
+      padding: 16px 20px;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    .campaign-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .campaign-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    /* Status badge + dropdown */
+    .status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.live { background: var(--live); box-shadow: 0 0 6px var(--live); }
+    .status-dot.paused { background: var(--paused); box-shadow: 0 0 6px var(--paused); }
+    .status-dot.ended { background: var(--ended); }
+
+    .status-select {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .status-select:hover, .status-select:focus { border-color: var(--accent); }
+    .status-select option { background: var(--surface2); }
+
+    .notes-cell {
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .notes-input {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--muted);
+      font-family: var(--font-display);
+      font-size: 12px;
+      padding: 4px 8px;
+      width: 180px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .notes-input:hover { border-color: var(--border); color: var(--text); }
+    .notes-input:focus { border-color: var(--accent); color: var(--text); background: var(--surface2); }
+
+    .updated-cell {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* Save indicator */
+    .save-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .save-indicator.saving {
+      background: rgba(92,45,145,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(92,45,145,0.2);
+      opacity: 1;
+    }
+
+    .save-indicator.saved {
+      background: rgba(30,138,94,0.1);
+      color: var(--live);
+      border: 1px solid rgba(30,138,94,0.2);
+      opacity: 1;
+    }
+
+    .save-indicator.error {
+      background: rgba(176,42,74,0.1);
+      color: var(--ended);
+      border: 1px solid rgba(176,42,74,0.2);
+      opacity: 1;
+    }
+
+    /* Loading / empty */
+    .loading-row td, .empty-row td {
+      text-align: center;
+      padding: 60px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Add campaign row */
+    .add-row td {
+      padding: 12px 20px;
+      background: var(--surface2);
+    }
+
+    .add-btn {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .add-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      width: 440px;
+      max-width: 95vw;
+      transform: translateY(20px);
+      transition: transform 0.2s;
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 24px;
+      color: var(--text);
+    }
+
+    .modal label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .modal input, .modal select, .modal textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      margin-bottom: 18px;
+      transition: border-color 0.2s;
+    }
+
+    .modal input:focus, .modal select:focus, .modal textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .modal textarea { resize: vertical; min-height: 80px; }
+    .modal select option { background: var(--surface2); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+
+    .btn-save {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-save:hover { opacity: 0.85; }
+    .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    @media (max-width: 700px) {
+      .stats-bar { grid-template-columns: repeat(3, 1fr); }
+      th:nth-child(1), td:nth-child(1) { display: none; }
+      .notes-input { width: 120px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <img src="TF.jpg" alt="TwoFeeds logo"/>
+      </div>
+      <div>
+        <h1>TwoFeeds</h1>
+        <span>campaign ops dashboard</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="last-sync" id="lastSync">—</span>
+      <div class="save-indicator" id="saveIndicator"></div>
+      <button class="refresh-btn" onclick="loadCampaigns()">↻ REFRESH</button>
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat live-stat">
+      <div class="stat-label">● Live</div>
+      <div class="stat-value" id="countLive">—</div>
+    </div>
+    <div class="stat paused-stat">
+      <div class="stat-label">⏸ Paused</div>
+      <div class="stat-value" id="countPaused">—</div>
+    </div>
+    <div class="stat ended-stat">
+      <div class="stat-label">✕ Ended</div>
+      <div class="stat-value" id="countEnded">—</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+    <button class="filter-btn" onclick="setFilter('Live', this)">Live</button>
+    <button class="filter-btn" onclick="setFilter('Paused', this)">Paused</button>
+    <button class="filter-btn" onclick="setFilter('Ended', this)">Ended</button>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Search campaigns..." id="searchInput" oninput="renderTable()"/>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Campaign</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th>Last Updated</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr class="loading-row">
+          <td colspan="5">
+            <div class="spinner"></div><br/>Loading campaigns...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Campaign Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>+ New Campaign</h2>
+    <label>Campaign ID</label>
+    <input type="text" id="newId" placeholder="e.g. 004"/>
+    <label>Campaign Name</label>
+    <input type="text" id="newName" placeholder="e.g. Summer Retargeting"/>
+    <label>Status</label>
+    <select id="newStatus">
+      <option>Live</option>
+      <option>Paused</option>
+      <option>Ended</option>
+    </select>
+    <label>Notes</label>
+    <textarea id="newNotes" placeholder="Optional notes..."></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="modalSaveBtn" onclick="addCampaign()">Add Campaign</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbzC7CO8g97fNI7h-Zbc2Vf43rM7iLdsaMXwOuXtsh6mWQpycz_0baJEktMWFrQfLH-s/exec";
+
+  let campaigns = [];
+  let currentFilter = 'all';
+
+  async function loadCampaigns() {
+    document.getElementById('tableBody').innerHTML = `
+      <tr class="loading-row"><td colspan="5">
+        <div class="spinner"></div><br/>Loading campaigns...
+      </td></tr>`;
+    try {
+      const res = await fetch(API);
+      const json = await res.json();
+      campaigns = json.data || [];
+      updateStats();
+      renderTable();
+      document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
+    } catch (err) {
+      document.getElementById('tableBody').innerHTML = `
+        <tr class="empty-row"><td colspan="5">⚠ Could not load data. Check your API URL.</td></tr>`;
+    }
+  }
+
+  function updateStats() {
+    document.getElementById('countLive').textContent = campaigns.filter(c => c.Status === 'Live').length;
+    document.getElementById('countPaused').textContent = campaigns.filter(c => c.Status === 'Paused').length;
+    document.getElementById('countEnded').textContent = campaigns.filter(c => c.Status === 'Ended').length;
+  }
+
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  }
+
+  function renderTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    let filtered = campaigns.filter(c => {
+      const matchFilter = currentFilter === 'all' || c.Status === currentFilter;
+      const matchSearch = !search ||
+        (c['Campaign Name'] || '').toLowerCase().includes(search) ||
+        (c['Campaign ID'] || '').toLowerCase().includes(search);
+      return matchFilter && matchSearch;
+    });
+
+    if (filtered.length === 0) {
+      document.getElementById('tableBody').innerHTML = `
+        <tr class="empty-row"><td colspan="5">No campaigns found.</td></tr>
+        <tr class="add-row"><td colspan="5"><button class="add-btn" onclick="openModal()">+ Add Campaign</button></td></tr>`;
+      return;
+    }
+
+    const rows = filtered.map((c, i) => {
+      const statusClass = (c.Status || '').toLowerCase();
+      return `
+        <tr style="animation-delay:${i * 0.04}s">
+          <td class="campaign-id">${c['Campaign ID'] || '—'}</td>
+          <td class="campaign-name">${c['Campaign Name'] || '—'}</td>
+          <td>
+            <div class="status-wrap">
+              <span class="status-dot ${statusClass}"></span>
+              <select class="status-select" data-row="${c._row}" onchange="updateStatus(this)">
+                <option ${c.Status==='Live'?'selected':''}>Live</option>
+                <option ${c.Status==='Paused'?'selected':''}>Paused</option>
+                <option ${c.Status==='Ended'?'selected':''}>Ended</option>
+              </select>
+            </div>
+          </td>
+          <td>
+            <input class="notes-input" type="text" value="${c.Notes || ''}"
+              data-row="${c._row}" placeholder="Add note..."
+              onblur="updateNotes(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
+          </td>
+          <td class="updated-cell">${c['Last Updated'] || '—'}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('tableBody').innerHTML = rows + `
+      <tr class="add-row"><td colspan="5"><button class="add-btn" onclick="openModal()">+ Add Campaign</button></td></tr>`;
+  }
+
+  async function updateStatus(select) {
+    const row = select.dataset.row;
+    const status = select.value;
+    // Update local dot immediately
+    const dot = select.closest('.status-wrap').querySelector('.status-dot');
+    dot.className = 'status-dot ' + status.toLowerCase();
+    showIndicator('saving', '◌ Saving...');
+    try {
+      await fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ row: parseInt(row), status }),
+      });
+      // Update local data
+      const c = campaigns.find(c => c._row == row);
+      if (c) { c.Status = status; c['Last Updated'] = new Date().toLocaleString(); }
+      updateStats();
+      renderTable();
+      showIndicator('saved', '✓ Saved');
+    } catch {
+      showIndicator('error', '✕ Error');
+    }
+  }
+
+  async function updateNotes(input) {
+    const row = input.dataset.row;
+    const notes = input.value;
+    showIndicator('saving', '◌ Saving...');
+    try {
+      await fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ row: parseInt(row), notes }),
+      });
+      const c = campaigns.find(c => c._row == row);
+      if (c) { c.Notes = notes; c['Last Updated'] = new Date().toLocaleString(); }
+      showIndicator('saved', '✓ Saved');
+    } catch {
+      showIndicator('error', '✕ Error');
+    }
+  }
+
+  function showIndicator(type, text) {
+    const el = document.getElementById('saveIndicator');
+    el.className = 'save-indicator ' + type;
+    el.textContent = text;
+    if (type !== 'saving') {
+      setTimeout(() => { el.className = 'save-indicator'; }, 2500);
+    }
+  }
+
+  function openModal() {
+    document.getElementById('modalOverlay').classList.add('open');
+    document.getElementById('newId').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.getElementById('newId').value = '';
+    document.getElementById('newName').value = '';
+    document.getElementById('newNotes').value = '';
+    document.getElementById('newStatus').value = 'Live';
+  }
+
+  async function addCampaign() {
+    const id = document.getElementById('newId').value.trim();
+    const name = document.getElementById('newName').value.trim();
+    const status = document.getElementById('newStatus').value;
+    const notes = document.getElementById('newNotes').value.trim();
+    if (!name) { document.getElementById('newName').focus(); return; }
+
+    const btn = document.getElementById('modalSaveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+
+    try {
+      await fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'add', id, name, status, notes }),
+      });
+      closeModal();
+      await loadCampaigns();
+    } catch {
+      showIndicator('error', '✕ Error adding');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Add Campaign';
+  }
+
+  // Close modal on overlay click
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // Initial load
+  loadCampaigns();
+</script>
+</body>
+</html>
